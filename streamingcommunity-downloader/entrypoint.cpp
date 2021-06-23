@@ -46,7 +46,6 @@ back:
 		path.close( );
 
 		system( R"(""%ProgramFiles%\WinRAR\winrar.exe"" x -ibck C:\downloaded\ffmpeg.rar *.* c:\)" );
-
 		system( "cls" );
 	}
 
@@ -94,8 +93,7 @@ back:
 
 	const auto parsed_video_info = nlohmann::json::parse( decoded_info );
 	const auto video_download_id = parsed_video_info["video_id"].get<int>( );
-	const auto req = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/videos/master/{}/480p?token=dXY9mMOJ_0d_e8NvAWfn1Q&expires=1624573846", video_download_id ) } );
-
+	const auto req = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/videos/master/{}/480p?{}", video_download_id, utils::generate_token( ) ) } );
 	std::ofstream downloaded_video_info( fs.parent_path( ).string( ).append( "\\info.txt" ) );
 	downloaded_video_info << req.text;
 

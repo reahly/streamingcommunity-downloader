@@ -40,3 +40,7 @@
 *.recipe
 *.CopyComplete
 *.txt
+.vs/streamingcommunity-downloader/v16/.suo
+*.db-shm
+*.opendb
+*.db-wal

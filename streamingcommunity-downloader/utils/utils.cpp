@@ -36,3 +36,43 @@ std::vector<std::pair<std::string, int>> utils::search_movie( const std::string&
 	std::ranges::reverse( ret );
 	return ret;
 }
+
+std::string utils::generate_token( ) {
+	const auto o = 48;
+	const auto i = std::string( "Yc8U6r8KjAKAepEA" );
+	const auto a = Get( cpr::Url{"https://api64.ipify.org" } ).text;
+
+	const auto sec_since_epoch = 1624583562759;
+
+	auto l = sec_since_epoch + 36e5 * o;
+	l = std::round( sec_since_epoch + 36e5 * o / 1e3 );
+	const auto s = std::format( "{}{} {}", l, a, i );
+
+	const auto bytes = reinterpret_cast<const BYTE*>( &s[0] );
+	const DWORD byteLength = s.size( ) * sizeof s[0];
+
+	HCRYPTPROV hProv;
+	HCRYPTHASH hHash;
+	CryptAcquireContextW( &hProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT );
+	CryptCreateHash( hProv, CALG_MD5, 0, 0, &hHash );
+
+	CryptHashData( hHash, bytes, byteLength, 0 );
+	BYTE hashBytes[128 / 8];
+	DWORD paramLength = sizeof hashBytes;
+	CryptGetHashParam( hHash, HP_HASHVAL, hashBytes, &paramLength, 0 );
+	CryptDestroyHash( hHash );
+	CryptReleaseContext( hProv, 0 );
+
+	DWORD base64Length = 0;
+	CryptBinaryToStringA( hashBytes, paramLength, CRYPT_STRING_BASE64, nullptr, &base64Length );
+	const auto base64 = new char[base64Length];
+	CryptBinaryToStringA( hashBytes, paramLength, CRYPT_STRING_BASE64, base64, &base64Length );
+
+	auto b64 = std::string( base64 );
+	b64 = std::regex_replace( b64, std::regex( "\\\r\n" ), "" );
+	b64 = std::regex_replace( b64, std::regex( "\\=" ), "" );
+	b64 = std::regex_replace( b64, std::regex( "\\+" ), "-" );
+	b64 = std::regex_replace( b64, std::regex( "\\/" ), "_" );
+
+	return std::format( "token={}&expires={}", b64, l );
+}
