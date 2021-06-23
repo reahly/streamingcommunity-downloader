@@ -26,7 +26,7 @@ std::vector<std::pair<std::string, int>> utils::search_movie( const std::string&
 	search_json["q"] = movie_name;
 	const auto request = Post( cpr::Url{ R"(https://streamingcommunity.tv/api/search)" }, cpr::Body{ search_json.dump( ) }, cpr::Header{ { "content-type", "application/json;charset=UTF-8" }, { "referer", R"(https://streamingcommunity.tv/search?q=)" } } );
 	if ( request.error.code != cpr::ErrorCode::OK || !nlohmann::json::accept( request.text ) )
-		return {};
+		return { };
 
 	std::vector<std::pair<std::string, int>> ret;
 	auto parsed_request = nlohmann::ordered_json::parse( request.text );
@@ -40,9 +40,11 @@ std::vector<std::pair<std::string, int>> utils::search_movie( const std::string&
 std::string utils::generate_token( ) {
 	const auto o = 48;
 	const auto i = std::string( "Yc8U6r8KjAKAepEA" );
-	const auto a = Get( cpr::Url{"https://api64.ipify.org" } ).text;
+	const auto a = Get( cpr::Url{ "https://api64.ipify.org" } ).text;
 
-	const auto sec_since_epoch = 1624583562759;
+	const std::chrono::system_clock::time_point tp = std::chrono::system_clock::now( );
+	const std::chrono::system_clock::duration dtn = tp.time_since_epoch( );
+	const auto sec_since_epoch = dtn.count( ) * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
 
 	auto l = sec_since_epoch + 36e5 * o;
 	l = std::round( sec_since_epoch + 36e5 * o / 1e3 );
