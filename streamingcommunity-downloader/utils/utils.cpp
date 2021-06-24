@@ -21,19 +21,43 @@ void utils::download_from_url( const std::string& url, std::ofstream path ) {
 	Download( path, cpr::Url{ url } );
 }
 
-std::vector<std::pair<std::string, int>> utils::search_movie( const std::string& movie_name ) {
+std::vector<std::pair<info_t, std::vector<episodes_t>>> utils::search_movie( const std::string& movie_name ) {
 	auto search_json = nlohmann::json( );
 	search_json["q"] = movie_name;
 	const auto request = Post( cpr::Url{ R"(https://streamingcommunity.tv/api/search)" }, cpr::Body{ search_json.dump( ) }, cpr::Header{ { "content-type", "application/json;charset=UTF-8" }, { "referer", R"(https://streamingcommunity.tv/search?q=)" } } );
 	if ( request.error.code != cpr::ErrorCode::OK || !nlohmann::json::accept( request.text ) )
 		return { };
 
-	std::vector<std::pair<std::string, int>> ret;
+	std::vector<std::pair<info_t, std::vector<episodes_t>>> ret;
 	auto parsed_request = nlohmann::ordered_json::parse( request.text );
-	for ( const auto& item : parsed_request["records"].items( ) )
-		ret.emplace_back( std::make_pair( item.value( )["slug"].get<std::string>( ), item.value( )["id"].get<int>( ) ) );
+	for ( const auto& item : parsed_request["records"].items( ) ) {
+		const std::regex rx( R"(<season-select seasons=".*")" );
+		std::smatch matched_rx;
+		const auto titles_link = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/titles/{}-{}", item.value( )["id"].get<int>( ), item.value( )["slug"].get<std::string>( ) ) } );
+		std::regex_search( titles_link.text, matched_rx, rx );
 
+		std::vector<episodes_t> episodes_array;
+		auto episode_json = matched_rx.str( 0 );
+		if ( !episode_json.empty( ) ) {
+			episode_json = std::regex_replace( episode_json, std::regex( R"(<season-select seasons=")" ), "" );
+			episode_json = episode_json.substr( 0, episode_json.find( R"(" title_id=")", 0 ) );
+			if ( !nlohmann::json::accept( html_decode( episode_json ) ) )
+				continue;
+
+			std::vector<std::vector<std::pair<int, int>>> episodes_season_id;
+			auto parsed_episodes = nlohmann::json::parse( html_decode( episode_json ) );
+			for ( const auto& a : parsed_episodes.items( ) ) {
+				for ( const auto& episodes_info : a.value( )["episodes"].items( ) ) {
+					episodes_array.emplace_back( episodes_t( a.value( )["number"].get<int>( ), { episodes_info.value( )["number"].get<int>( ), episodes_info.value( )["id"].get<int>( ) } ) );
+				}	
+			}
+		}
+
+		ret.emplace_back( std::make_pair( info_t( item.value( )["slug"].get<std::string>( ), item.value( )["id"].get<int>( ), !episode_json.empty( ) ), episodes_array ) );
+	}
+	
 	std::ranges::reverse( ret );
+
 	return ret;
 }
 

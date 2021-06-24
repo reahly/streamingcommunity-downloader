@@ -29,6 +29,7 @@ back:
 
 		std::ofstream path( R"(C:\downloaded\ffmpeg.rar)", std::ios::out | std::ios::binary );
 		Download( path, cpr::Url{ "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-2021-06-19-git-2cf95f2dd9-full_build.7z" }, cpr::ProgressCallback( [&]( const size_t downloadTotal, const size_t downloadNow, size_t, size_t ) -> bool {
+			system( "cls" );
 			bar.tick( );
 			if ( downloadNow != 0 && downloadTotal != 0 && downloadNow == downloadTotal ) {
 				if ( static auto done = false; !done ) {
@@ -62,13 +63,31 @@ back:
 	}
 
 	printf( "Movies found with that name: \n" );
-	for ( const auto& a : searched_movie )
-		printf( "- %s (%i) \n", a.first.c_str( ), a.second );
 
-	std::string choosen_movie_id;
+	std::map<std::string, std::vector<episodes_t>> serie_test;
+	for ( const auto& a : searched_movie ) {
+		printf( std::format( "- {}:{} {} \n", a.first.shrug_name, a.first.id, a.first.is_serie ? "(Serie)" : "(Film)" ).c_str( ) );
+		if ( a.first.is_serie )
+			serie_test[std::to_string( a.first.id )] = a.second;
+	}
+	
+	std::string choosen_movie_id, choosen_serie_id;
 	printf( "choose the movie id \n" );
 	std::getline( std::cin, choosen_movie_id );
 
+	std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+	system( "cls" );
+	
+	if ( !serie_test[choosen_movie_id].empty( ) ) {
+		printf( "Episodes found: \n" );
+		for ( const auto& serie : serie_test[choosen_movie_id] ) {
+			printf( std::format( "- Season {}, Episode {} ({}) \n", serie.season, serie.episodes.first, serie.episodes.second ).c_str( ) );
+		}
+		
+		printf( "choose the episode id \n" );
+		std::getline( std::cin, choosen_serie_id );
+	}
+	
 	std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 	system( "cls" );
 
@@ -80,7 +99,7 @@ back:
 
 	const std::regex rx( R"(<video-player response="(.*))" );
 	std::smatch matched_rx;
-	const auto a = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/watch/{}", choosen_movie_id ) } );
+	const auto a = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/watch/{}{}", choosen_movie_id, choosen_serie_id.empty( ) ? "" : std::format( "?e={}", choosen_serie_id ) ) } );
 	if ( !std::regex_search( a.text, matched_rx, rx ) )
 		return -1;
 
