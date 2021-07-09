@@ -18,22 +18,22 @@ size_t write_data( void* ptr, const size_t size, const size_t nmemb, FILE* strea
 }
 
 void utils::download_from_url( const std::string& url, std::ofstream path ) {
-	Download( path, cpr::Url{ url } );
+	if ( const auto download_info = Download( path, cpr::Url{ url }, cpr::Timeout{ 3000 } ); download_info.downloaded_bytes == 0 )
+		Download( path, cpr::Url{ url }, cpr::Timeout{ 3000 } );
 }
 
 std::vector<std::pair<info_t, std::vector<episodes_t>>> utils::search_movie( const std::string& movie_name ) {
 	auto search_json = nlohmann::json( );
 	search_json["q"] = movie_name;
-	const auto request = Post( cpr::Url{ R"(https://streamingcommunity.tv/api/search)" }, cpr::Body{ search_json.dump( ) }, cpr::Header{ { "content-type", "application/json;charset=UTF-8" }, { "referer", R"(https://streamingcommunity.tv/search?q=)" } } );
+	const auto request = Post( cpr::Url{ R"(https://streamingcommunity.work/api/search)" }, cpr::Body{ search_json.dump( ) }, cpr::Header{ { "content-type", "application/json;charset=UTF-8" }, { "referer", R"(https://streamingcommunity.work/search?q=)" } } );
 	if ( request.error.code != cpr::ErrorCode::OK || !nlohmann::json::accept( request.text ) )
 		return { };
 
 	std::vector<std::pair<info_t, std::vector<episodes_t>>> ret;
-	auto parsed_request = nlohmann::ordered_json::parse( request.text );
-	for ( const auto& item : parsed_request["records"].items( ) ) {
+	for ( auto parsed_request = nlohmann::ordered_json::parse( request.text ); const auto& item : parsed_request["records"].items( ) ) {
 		const std::regex rx( R"(<season-select seasons=".*")" );
 		std::smatch matched_rx;
-		const auto titles_link = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/titles/{}-{}", item.value( )["id"].get<int>( ), item.value( )["slug"].get<std::string>( ) ) } );
+		const auto titles_link = Get( cpr::Url{ std::format( "https://streamingcommunity.work/titles/{}-{}", item.value( )["id"].get<int>( ), item.value( )["slug"].get<std::string>( ) ) } );
 		std::regex_search( titles_link.text, matched_rx, rx );
 
 		std::vector<episodes_t> episodes_array;

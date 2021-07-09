@@ -10,6 +10,8 @@
 #include <cpr/cpr.h>
 #include "utils/utils.hh"
 #include <indicators/indeterminate_progress_bar.hpp>
+#include <thread_pool.hh>
+#include <chrono>
 
 int main( ) {
 back:
@@ -99,7 +101,7 @@ back:
 
 	const std::regex rx( R"(<video-player response="(.*))" );
 	std::smatch matched_rx;
-	const auto a = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/watch/{}{}", choosen_movie_id, choosen_serie_id.empty( ) ? "" : std::format( "?e={}", choosen_serie_id ) ) } );
+	const auto a = Get( cpr::Url{ std::format( "https://streamingcommunity.work/watch/{}{}", choosen_movie_id, choosen_serie_id.empty( ) ? "" : std::format( "?e={}", choosen_serie_id ) ) } );
 	if ( !std::regex_search( a.text, matched_rx, rx ) )
 		return -1;
 
@@ -112,7 +114,7 @@ back:
 
 	const auto parsed_video_info = nlohmann::json::parse( decoded_info );
 	const auto video_download_id = parsed_video_info["video_id"].get<int>( );
-	const auto req = Get( cpr::Url{ std::format( "https://streamingcommunity.tv/videos/master/{}/480p?{}", video_download_id, utils::generate_token( ) ) } );
+	const auto req = Get( cpr::Url{ std::format( "https://streamingcommunity.work/videos/master/{}/480p?{}", video_download_id, utils::generate_token( ) ) } );
 	std::ofstream downloaded_video_info( fs.parent_path( ).string( ).append( "\\info.txt" ) );
 	downloaded_video_info << req.text;
 
@@ -128,19 +130,39 @@ back:
 		}
 	}
 
+	downloaded_video_info_file.close( );
+	
 	if ( clips.empty( ) ) {
 		printf( "something went wrong \n" );
 		std::this_thread::sleep_for( std::chrono::seconds( 3 ) );
 		return -1;
 	}
-
-	printf( "started download for the clips \n" );
+	
+	static auto start = std::chrono::high_resolution_clock::now( );
+	
+	printf( "started downloading %llu clips \n", clips.size( ) );
 	static auto counter = 0;
-	for ( const auto& clip : clips ) {
-		utils::download_from_url( clip, std::ofstream( fs.parent_path( ).string( ).append( std::format( "\\{}.process", ++counter ) ).c_str( ), std::ios::out | std::ios::binary ) );
-	}
 
-	printf( "downloaded %i clips, now processing them \n", counter );
+	auto thread = std::thread( [ clips ]( ) {
+		while ( true ) {
+			printf( "downloaded %i/%llu \n", counter, clips.size( ) );
+			if ( counter == clips.size( ) )
+				break;
+			
+			std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+		}
+	});
+	
+	thread_create download_threads( 50 );
+	for ( auto clip : clips ) {
+		download_threads.start( [clip, fs]( ) {
+			utils::download_from_url( clip, std::ofstream( fs.parent_path( ).string( ).append( std::format( "\\{}.process", ++counter ) ).c_str( ), std::ios::out | std::ios::binary ) );
+		} );
+	}		
+
+	download_threads.~thread_create( );
+	
+	printf( "downloaded %i clips, took %is \n", counter, static_cast<uint32_t>( std::chrono::duration_cast<std::chrono::seconds>( std::chrono::high_resolution_clock::now( ) - start ).count( ) ) );
 	std::map<int, std::string> names;
 	for ( const auto& dir_iter : std::filesystem::recursive_directory_iterator( R"(C:\downloaded\)" ) ) {
 		if ( dir_iter.path( ).extension( ) != ".process" )
@@ -149,7 +171,7 @@ back:
 		names[std::stoi( dir_iter.path( ).filename( ).replace_extension( ).string( ) )] = dir_iter.path( ).filename( ).string( ).append( "\n" );
 	}
 
-	std::ofstream file( "c:\\downloaded\\ffmpeg_ready.txt", std::ios::out | std::ios::binary );
+	std::ofstream file( "C:\\downloaded\\ffmpeg_ready.txt", std::ios::out | std::ios::binary );
 	for ( const auto& val : names | std::views::values ) {
 		file << "file " + val;
 	}
@@ -157,9 +179,12 @@ back:
 	file.close( );
 	std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
 
+	std::filesystem::remove( R"(C:\finished_video.mp4)" );
 	system( R"(C:\ffmpeg-2021-06-19-git-2cf95f2dd9-full_build\bin\ffmpeg.exe -f concat -i C:\downloaded\ffmpeg_ready.txt -vcodec copy -acodec copy C:\finished_video.mp4)" );
 
 	printf( "finished! movie saved in the c drive! \n" );
+
+	remove_all( fs );
 	system( "pause" );
 	return EXIT_SUCCESS;
 }
