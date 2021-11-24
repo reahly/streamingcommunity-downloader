@@ -101,7 +101,7 @@ back:
 
 	const std::regex rx( R"(<video-player response="(.*))" );
 	std::smatch matched_rx;
-	const auto a = Get( cpr::Url{ std::format( "https://streamingcommunity.work/watch/{}{}", choosen_movie_id, choosen_serie_id.empty( ) ? "" : std::format( "?e={}", choosen_serie_id ) ) } );
+	const auto a = Get( cpr::Url{ std::format( "https://streamingcommunity.art/watch/{}{}", choosen_movie_id, choosen_serie_id.empty( ) ? "" : std::format( "?e={}", choosen_serie_id ) ) } );
 	if ( !std::regex_search( a.text, matched_rx, rx ) )
 		return -1;
 
@@ -114,7 +114,7 @@ back:
 
 	const auto parsed_video_info = nlohmann::json::parse( decoded_info );
 	const auto video_download_id = parsed_video_info["video_id"].get<int>( );
-	const auto req = Get( cpr::Url{ std::format( "https://streamingcommunity.work/videos/master/{}/480p?{}", video_download_id, utils::generate_token( ) ) } );
+	const auto req = Get( cpr::Url{ std::format( "https://streamingcommunity.art/videos/master/{}/480p?{}", video_download_id, utils::generate_token( ) ) } );
 	std::ofstream downloaded_video_info( fs.parent_path( ).string( ).append( "\\info.txt" ) );
 	downloaded_video_info << req.text;
 
