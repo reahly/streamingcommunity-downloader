@@ -1,6 +1,5 @@
-﻿#include <filesystem>
+#include <filesystem>
 #include <Windows.h>
-#include <xorstr.hh>
 #include <nlohmann/json.hh>
 #include <curl/curl.h>
 #include <fstream>
@@ -144,10 +143,8 @@ back:
 	static auto counter = 0;
 
 	auto thread = std::thread( [ clips ]( ) {
-		while ( true ) {
+		while ( counter != clips.size( ) ) {
 			printf( "downloaded %i/%llu \n", counter, clips.size( ) );
-			if ( counter == clips.size( ) )
-				break;
 			
 			std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 		}
